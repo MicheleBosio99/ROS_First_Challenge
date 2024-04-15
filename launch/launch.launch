@@ -1,12 +1,15 @@
 <launch>
   <!-- Set parameters -->
+  <!-- Old parameters: 717118.989688, 4547434.916809, 4414571.007919 -->
   <param name="lat_r" type="double" value="45.477669"/>
   <param name="lon_r" type="double" value="9.226740"/>
-  <param name="alt_r" type="double" value="169.041000"/>
+  <param name="alt_r" type="double" value="169.039000"/>
 
-  <!-- Launch the node -->
-  <node name="gps_to_odom_node" pkg="first_project" type="gps_to_odom" output="screen"/>
+  <!-- Launch the nodes -->
+  <group ns="first_project">
+    <node pkg="first_project" type="gps_to_odom" name="gps_to_odom" output="screen"/>
+  </group>
 
   <!-- Play the bag file -->
-  <node name="rosbag_player" pkg="rosbag" type="play" args="--clock /src/bags/robotics.bag" output="screen"/>
+  <!-- node name="rosbag_player" pkg="rosbag" type="play" args=" /src/bags/robotics.bag"/ -->
 </launch>
