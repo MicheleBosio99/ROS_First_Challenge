@@ -1,13 +1,12 @@
 <launch>
-  <!-- Set parameters -->
   <!-- Old parameters: 717118.989688, 4547434.916809, 4414571.007919 -->
-  <param name="lat_r" type="double" value="45.477669"/>
-  <param name="lon_r" type="double" value="9.226740"/>
-  <param name="alt_r" type="double" value="169.039000"/>
-
   <!-- Launch the nodes -->
   <group ns="first_project">
-    <node pkg="first_project" type="gps_to_odom" name="gps_to_odom" output="screen"/>
+    <node pkg="first_project" type="gps_to_odom" name="gps_to_odom" output="screen">
+      <param name="lat_r" type="double" value="45.477669"/>
+      <param name="lon_r" type="double" value="9.226740"/>
+      <param name="alt_r" type="double" value="169.039000"/>
+    </node>
   </group>
 
   <!-- Play the bag file -->

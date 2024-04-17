@@ -44,13 +44,13 @@ class Gps_To_Odom {
 			pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 100);
 			
 			// Retrieve the initial parameters setted in the launch file;
-			nh.getParam("/lat_r", lat_r);
-			nh.getParam("/lon_r", lon_r);
-			nh.getParam("/alt_r", alt_r);
+			nh.getParam("gps_to_odom/lat_r", lat_r);
+			nh.getParam("gps_to_odom/lon_r", lon_r);
+			nh.getParam("gps_to_odom/alt_r", alt_r);
 			
 			Vector3d refPoint(lat_r, lon_r, alt_r);
 			coordECEF_r = convertGPStoECEF(refPoint);
-			ROS_INFO("R parameters in ECEF: %f, %f, %f\n", coordECEF_r(0), coordECEF_r(1), coordECEF_r(2));
+			// ROS_INFO("R parameters in ECEF: %f, %f, %f\n", coordECEF_r(0), coordECEF_r(1), coordECEF_r(2));
 		}
 		
 		Vector3d convertGPStoECEF(Vector3d coordGPS) {
