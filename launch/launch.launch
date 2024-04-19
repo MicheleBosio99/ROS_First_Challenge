@@ -1,13 +1,29 @@
 <launch>
-  <!-- Old parameters: 717118.989688, 4547434.916809, 4414571.007919 -->
   <!-- Launch the nodes -->
   <group ns="first_project">
+
     <node pkg="first_project" type="gps_to_odom" name="gps_to_odom" output="screen">
       <param name="lat_r" type="double" value="45.477669"/>
       <param name="lon_r" type="double" value="9.226740"/>
       <param name="alt_r" type="double" value="169.039000"/>
     </node>
+    
+    <node pkg="first_project" type="odom_to_tf" name="odom_to_tf_encoders" output="screen">
+        <param name="root_frame" type="string" value="world"/>
+        <param name="child_frame" type="string" value="wheel_odom"/>
+        <remap from="input_odom" to="odom"/>
+    </node>
+
+    <node pkg="first_project" type="odom_to_tf" name="odom_to_tf_gps" output="screen">
+        <param name="root_frame" type="string" value="world"/>
+        <param name="child_frame" type="string" value="gps_odom"/>
+        <remap from="input_odom" to="gps_odom"/>
+    </node>
+
   </group>
+
+  <!-- Start RVIZ -->
+  <!-- -->
 
   <!-- Play the bag file -->
   <!-- node name="rosbag_player" pkg="rosbag" type="play" args=" /src/bags/robotics.bag"/ -->
