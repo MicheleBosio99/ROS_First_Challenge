@@ -3,6 +3,8 @@
 #include "Eigen/Dense"
 #include "sensor_msgs/NavSatFix.h"
 #include "nav_msgs/Odometry.h"
+#include <tf/transform_datatypes.h>
+#include <geometry_msgs/Quaternion.h>
 
 using namespace std;
 using namespace Eigen;
@@ -16,9 +18,8 @@ class Gps_To_Odom {
 		
 		double lat_r, lon_r, alt_r;
 		Vector3d coordECEF_r;
-		double last_lat, last_lon, last_heading;
+		Vector3d last_coords, last_heading;
 		double a = 6378137.0, b = 6356752.0;
-		
 		bool first_message_received = false;
 		
 		double radians(double degrees) { return degrees * M_PI / 180.0; }
@@ -27,30 +28,40 @@ class Gps_To_Odom {
 		
 		double computeN(double phi, double e) { return a / sqrt(1 - e * pow(sin(radians(phi)), 2)); }
 		
-		double computeHeading(double lat1, double lon1, double lat2, double lon2) {
-			double d_lon = radians(lon2 - lon1);
-			double y = sin(d_lon) * cos(radians(lat2));
-			double x = cos(radians(lat1)) * sin(radians(lat2)) - sin(radians(lat1)) * cos(radians(lat2)) * cos(d_lon);
-			
-			return atan2(y, x);
+		Vector3d computeHeading(Vector3d coords, Vector3d last_coords) {
+			Vector3d normV = (coords - last_coords).normalized();
+			return normV;
+		}
+
+		tf::Quaternion computeRotation(Vector3d heading) {
+			tf::Quaternion rotation;
+			Vector2d head2D = heading.head<2>(), xPos(1.0, 0.0);
+			double yaw = acos(head2D.dot(xPos)) / ((head2D.norm()) * (xPos.norm())); // Compute angle between heading vector and x positive semiaxis;
+
+			// ROS_INFO("Angle: %f", yaw * 180.0 / M_PI);
+			if(!isfinite(yaw)) {
+				rotation.setRPY(0.0, 0.0, 0.0);
+				return rotation;
+			}
+
+			// NB: the only angle considered is the one in the xy plane, since I noticed the heading.z does not change its value and it's always 0 (meaning the robot is not going up or down hill);
+			rotation.setRPY(0, 0, yaw);
+			rotation.normalized();
+			return rotation;
 		}
 	
 	public:
 		
 		Gps_To_Odom() {
-			// Declare subscribtion to /fix topic;
-			sub = nh.subscribe("/fix", 100, &Gps_To_Odom::convertCallback, this);
-			// Let ROS know you will publish /gps_odom messages from this node;
-			pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 100);
+			sub = nh.subscribe("/fix", 10, &Gps_To_Odom::gpsConvertCallback, this);
+			pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
 			
-			// Retrieve the initial parameters setted in the launch file;
 			nh.getParam("gps_to_odom/lat_r", lat_r);
 			nh.getParam("gps_to_odom/lon_r", lon_r);
 			nh.getParam("gps_to_odom/alt_r", alt_r);
 			
 			Vector3d refPoint(lat_r, lon_r, alt_r);
 			coordECEF_r = convertGPStoECEF(refPoint);
-			// ROS_INFO("R parameters in ECEF: %f, %f, %f\n", coordECEF_r(0), coordECEF_r(1), coordECEF_r(2));
 		}
 		
 		Vector3d convertGPStoECEF(Vector3d coordGPS) {
@@ -67,17 +78,17 @@ class Gps_To_Odom {
 		
 		Vector3d convertECEFtoENU(Vector3d coordECEF) {
 			double rad_lat_r = radians(lat_r), rad_lon_r = radians(lon_r);
-			
 			Matrix3d mat;
-			mat << -sin(rad_lon_r),               cos(rad_lon_r),                   0,
-			    -sin(rad_lat_r) * cos(rad_lon_r), -sin(rad_lat_r) * sin(rad_lon_r), cos(rad_lat_r),
-			    cos(rad_lat_r) * cos(rad_lon_r),  cos(rad_lat_r) * sin(rad_lon_r),  sin(rad_lat_r);
+
+			mat << -sin(rad_lon_r), cos(rad_lon_r), 0,
+				   -sin(rad_lat_r) * cos(rad_lon_r), -sin(rad_lat_r) * sin(rad_lon_r),
+				   cos(rad_lat_r), cos(rad_lat_r) * cos(rad_lon_r),  cos(rad_lat_r) * sin(rad_lon_r),  sin(rad_lat_r);
 			
 			Vector3d coordENU = mat * (coordECEF - coordECEF_r);
 			return coordENU;
 		}
 		
-		void convertCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+		void gpsConvertCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
 			double lat = msg->latitude;
 			double lon = msg->longitude;
 			double alt = msg->altitude;
@@ -93,33 +104,36 @@ class Gps_To_Odom {
 			odom_msg.pose.pose.position.y = coords(1);
 			odom_msg.pose.pose.position.z = coords(2);
 			
-			if (!first_message_received) { odom_msg.pose.pose.orientation.w = 1.0; } // Identity Quaternion as first orientation;
+			Vector3d heading;
+			tf::Quaternion rotation;
+
+			if (!first_message_received) { rotation.setRPY(0.0, 0.0, 0.0);  } // No rotation;
 			else {
-				double heading;
-				// Has the robot moved since last message received?
-				if (last_lat == lat && last_lon == lon) { heading = last_heading; }
+				if (coords == last_coords) { heading = last_heading; } // Has the robot moved since last message received?
 				else {
-					heading = computeHeading(last_lat, last_lon, lat, lon);
+					heading = computeHeading(coords, last_coords);
 					last_heading = heading;
 				}
-				
-				Quaterniond quat(AngleAxisd(heading, Vector3d::UnitZ()));
-				odom_msg.pose.pose.orientation.x = quat.x();
-				odom_msg.pose.pose.orientation.y = quat.y();
-				odom_msg.pose.pose.orientation.z = quat.z();
-				odom_msg.pose.pose.orientation.w = quat.w();
+				// ROS_INFO("Heading: %f, %f, %f\n", heading(0), heading(1), heading(2));
+				rotation = computeRotation(heading);
 			}
+			tf::quaternionTFToMsg(rotation, odom_msg.pose.pose.orientation);
 			
-			last_lat = lat;
-			last_lon = lon;
+			last_coords = coords;
 			first_message_received = true;
 			
 			pub.publish(odom_msg);
-			ROS_INFO("Pub: [x: %f, y: %f, z: %f]\n",
-				odom_msg.pose.pose.position.x,
-				odom_msg.pose.pose.position.y,
-				odom_msg.pose.pose.position.z
-			);
+			// ROS_INFO("Pub odom => pose:[x: %f, y: %f, z: %f]; orientation:[x: %f, y: %f, z: %f, w: %f]\n",
+
+			// 	odom_msg.pose.pose.position.x,
+			// 	odom_msg.pose.pose.position.y,
+			// 	odom_msg.pose.pose.position.z,
+
+			// 	odom_msg.pose.pose.orientation.x,
+			// 	odom_msg.pose.pose.orientation.y,
+			// 	odom_msg.pose.pose.orientation.z,
+			// 	odom_msg.pose.pose.orientation.w
+			// );
 		}
 };
 
