@@ -21,12 +21,15 @@ class Gps_To_Odom {
 		Vector3d last_coords, last_heading;
 		double a = 6378137.0, b = 6356752.0;
 		bool first_message_received = false;
+
+		double epsilon = 0.05;
+
 		
 		double radians(double degrees) { return degrees * M_PI / 180.0; }
 		
-		double computeE() { return 1 - (pow(b, 2) / pow(a, 2)); }
+		double computeESquare() { return 1 - (pow(b, 2) / pow(a, 2)); }
 		
-		double computeN(double phi, double e) { return a / sqrt(1 - e * pow(sin(radians(phi)), 2)); }
+		double computeN(double phi, double eSquare) { return a / sqrt(1 - eSquare * pow(sin(radians(phi)), 2)); }
 		
 		Vector3d computeHeading(Vector3d coords, Vector3d last_coords) {
 			Vector3d normV = (coords - last_coords).normalized();
@@ -38,13 +41,13 @@ class Gps_To_Odom {
 			Vector2d head2D = heading.head<2>(), xPos(1.0, 0.0);
 			double yaw = acos(head2D.dot(xPos)) / ((head2D.norm()) * (xPos.norm())); // Compute angle between heading vector and x positive semiaxis;
 
-			// ROS_INFO("Angle: %f", yaw * 180.0 / M_PI);
+			ROS_INFO("Angle: %f", yaw * 180.0 / M_PI);
 			if(!isfinite(yaw)) {
 				rotation.setRPY(0.0, 0.0, 0.0);
 				return rotation;
 			}
 
-			// NB: the only angle considered is the one in the xy plane, since I noticed the heading.z does not change its value and it's always 0 (meaning the robot is not going up or down hill);
+			// NB: the only angle considered is the yaw in the xy plane, since I noticed the heading.z does not change its value and it's always very close to 0 (meaning the robot is not going up or down hill);
 			rotation.setRPY(0, 0, yaw);
 			rotation.normalized();
 			return rotation;
@@ -66,11 +69,13 @@ class Gps_To_Odom {
 		
 		Vector3d convertGPStoECEF(Vector3d coordGPS) {
 			double lat = coordGPS(0), lon = coordGPS(1), alt = coordGPS(2);
-			double e = computeE();
-			double NofPHI = computeN(lat, e);
-			double x = (NofPHI + alt) * cos(radians(lat)) * cos(radians(lon));
-			double y = (NofPHI + alt) * cos(radians(lat)) * sin(radians(lon));
-			double z = (NofPHI * (1 - e) + alt) * sin(radians(lat));
+			double eSquare = computeESquare();
+			double NofPHI = computeN(lat, eSquare);
+			double lar_radians = radians(lat), lon_radians = radians(lon);
+
+			double x = (NofPHI + alt) * cos(lar_radians) * cos(lon_radians);
+			double y = (NofPHI + alt) * cos(lar_radians) * sin(lon_radians);
+			double z = (NofPHI * (1 - eSquare) + alt) * sin(lar_radians);
 			
 			Vector3d coordECEF(x, y, z);
 			return coordECEF;
@@ -81,11 +86,18 @@ class Gps_To_Odom {
 			Matrix3d mat;
 
 			mat << -sin(rad_lon_r), cos(rad_lon_r), 0,
-				   -sin(rad_lat_r) * cos(rad_lon_r), -sin(rad_lat_r) * sin(rad_lon_r),
-				   cos(rad_lat_r), cos(rad_lat_r) * cos(rad_lon_r),  cos(rad_lat_r) * sin(rad_lon_r),  sin(rad_lat_r);
+				   -sin(rad_lat_r) * cos(rad_lon_r), -sin(rad_lat_r) * sin(rad_lon_r), cos(rad_lat_r),
+				   cos(rad_lat_r) * cos(rad_lon_r),  cos(rad_lat_r) * sin(rad_lon_r),  sin(rad_lat_r);
 			
-			Vector3d coordENU = mat * (coordECEF - coordECEF_r);
-			return coordENU;
+			Vector3d result = mat * (coordECEF - coordECEF_r);
+
+			double tetha = radians(127.6373289083415);
+			Matrix3d rotation;
+			rotation << cos(tetha), -sin(tetha), 0,
+						sin(tetha), cos(tetha), 0,
+						0, 0, 1;
+			
+			return rotation * result;
 		}
 		
 		void gpsConvertCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
@@ -107,9 +119,9 @@ class Gps_To_Odom {
 			Vector3d heading;
 			tf::Quaternion rotation;
 
-			if (!first_message_received) { rotation.setRPY(0.0, 0.0, 0.0);  } // No rotation;
+			if (!first_message_received) { rotation.setRPY(0.0, 0.0, 0.0); heading << 0.0, 0.0, 0.0;  } // No rotation;
 			else {
-				if (coords == last_coords) { heading = last_heading; } // Has the robot moved since last message received?
+				if ((coords - last_coords).norm() <= epsilon) { heading = last_heading; } // Has the robot moved ENOUGH since last message received?
 				else {
 					heading = computeHeading(coords, last_coords);
 					last_heading = heading;

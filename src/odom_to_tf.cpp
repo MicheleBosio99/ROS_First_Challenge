@@ -10,15 +10,18 @@ class Odom_To_TF {
 	private:
 		ros::Subscriber sub_odom;
         tf::TransformBroadcaster tf_pub;
-        std::string root_frame;
-        std::string child_frame;
+        string node_name;
+        string root_frame;
+        string child_frame;
 	
 	public:
 		
 		Odom_To_TF() {
 			ros::NodeHandle nh;
-            nh.getParam("root_frame", root_frame);
-            nh.getParam("child_frame", child_frame);
+            node_name = ros::this_node::getName();
+
+            nh.getParam(node_name + "/root_frame", root_frame);
+            nh.getParam(node_name + "/child_frame", child_frame);
 
             sub_odom = nh.subscribe("input_odom", 10, &Odom_To_TF::odomConvertCallback, this);
 		}
@@ -34,9 +37,9 @@ class Odom_To_TF {
             tf_pub.sendTransform(tf::StampedTransform(transform, ros::Time::now(), root_frame, child_frame));
 
 
-            ROS_INFO("Translation: [x: %f, y: %f, z: %f]", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
-            rotation = transform.getRotation();
-            ROS_INFO("Rotation: [x: %f, y: %f, z: %f, w: %f]\n\n", rotation.x(), rotation.y(), rotation.z(), rotation.w());
+            // ROS_INFO("Node2_INFO(%s): Translation: [x: %f, y: %f, z: %f]", node_name.c_str(), transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
+            // rotation = transform.getRotation();
+            // ROS_INFO("Node2_INFO(%s): Rotation: [x: %f, y: %f, z: %f, w: %f]\n\n", node_name.c_str(), rotation.x(), rotation.y(), rotation.z(), rotation.w());
         }
 };
 
