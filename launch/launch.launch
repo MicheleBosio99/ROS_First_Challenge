@@ -18,8 +18,12 @@
     <remap from="input_odom" to="gps_odom"/>
   </node>
 
+  <node pkg="first_project" type="lidar_remap" name="lidar_remap" output="screen">
+    <param name="lidar_frame_id" type="str" value="lidar_frame" />
+  </node>
+
   <!-- Start RVIZ -->
-  <!-- -->
+  <node pkg="rviz" type="rviz" name="rviz" required="true" output="screen"/>
 
   <!-- Play the bag file -->
   <!-- node name="rosbag_player" pkg="rosbag" type="play" args=" /src/bags/robotics.bag"/ -->

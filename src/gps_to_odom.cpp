@@ -30,6 +30,15 @@ class Gps_To_Odom {
 		double computeESquare() { return 1 - (pow(b, 2) / pow(a, 2)); }
 		
 		double computeN(double phi, double eSquare) { return a / sqrt(1 - eSquare * pow(sin(radians(phi)), 2)); }
+
+		Vector3d rotateVector(Vector3d vector) {
+			double tetha = radians(128.5);
+			Matrix3d rotation;
+			rotation << cos(tetha), -sin(tetha), 0,
+						sin(tetha), cos(tetha), 0,
+						0, 0, 1;
+			return rotation * vector;
+		}
 		
 		Vector3d computeHeading(Vector3d coords, Vector3d last_coords) {
 			Vector3d normV = (coords - last_coords).normalized();
@@ -41,13 +50,12 @@ class Gps_To_Odom {
 			Vector2d head2D = heading.head<2>(), xPos(1.0, 0.0);
 			double yaw = acos(head2D.dot(xPos)) / ((head2D.norm()) * (xPos.norm())); // Compute angle between heading vector and x positive semiaxis;
 
-			ROS_INFO("Angle: %f", yaw * 180.0 / M_PI);
+			// ROS_INFO("Angle: %f", yaw * 180.0 / M_PI);
 			if(!isfinite(yaw)) {
 				rotation.setRPY(0.0, 0.0, 0.0);
 				return rotation;
 			}
 
-			// NB: the only angle considered is the yaw in the xy plane, since I noticed the heading.z does not change its value and it's always very close to 0 (meaning the robot is not going up or down hill);
 			rotation.setRPY(0, 0, yaw);
 			rotation.normalized();
 			return rotation;
@@ -56,8 +64,8 @@ class Gps_To_Odom {
 	public:
 		
 		Gps_To_Odom() {
-			sub = nh.subscribe("/fix", 10, &Gps_To_Odom::gpsConvertCallback, this);
-			pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 10);
+			sub = nh.subscribe("/fix", 100, &Gps_To_Odom::gpsConvertCallback, this);
+			pub = nh.advertise<nav_msgs::Odometry>("gps_odom", 100);
 			
 			nh.getParam("gps_to_odom/lat_r", lat_r);
 			nh.getParam("gps_to_odom/lon_r", lon_r);
@@ -91,13 +99,7 @@ class Gps_To_Odom {
 			
 			Vector3d result = mat * (coordECEF - coordECEF_r);
 
-			double tetha = radians(127.6373289083415);
-			Matrix3d rotation;
-			rotation << cos(tetha), -sin(tetha), 0,
-						sin(tetha), cos(tetha), 0,
-						0, 0, 1;
-			
-			return rotation * result;
+			return rotateVector(result);
 		}
 		
 		void gpsConvertCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
@@ -135,17 +137,17 @@ class Gps_To_Odom {
 			first_message_received = true;
 			
 			pub.publish(odom_msg);
-			// ROS_INFO("Pub odom => pose:[x: %f, y: %f, z: %f]; orientation:[x: %f, y: %f, z: %f, w: %f]\n",
+			ROS_INFO("NODE1: Pub odom => pose:[x: %f, y: %f, z: %f]; orientation:[x: %f, y: %f, z: %f, w: %f]\n",
 
-			// 	odom_msg.pose.pose.position.x,
-			// 	odom_msg.pose.pose.position.y,
-			// 	odom_msg.pose.pose.position.z,
+				odom_msg.pose.pose.position.x,
+				odom_msg.pose.pose.position.y,
+				odom_msg.pose.pose.position.z,
 
-			// 	odom_msg.pose.pose.orientation.x,
-			// 	odom_msg.pose.pose.orientation.y,
-			// 	odom_msg.pose.pose.orientation.z,
-			// 	odom_msg.pose.pose.orientation.w
-			// );
+				odom_msg.pose.pose.orientation.x,
+				odom_msg.pose.pose.orientation.y,
+				odom_msg.pose.pose.orientation.z,
+				odom_msg.pose.pose.orientation.w
+			);
 		}
 };
 

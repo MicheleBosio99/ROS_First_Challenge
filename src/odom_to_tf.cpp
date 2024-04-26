@@ -23,7 +23,7 @@ class Odom_To_TF {
             nh.getParam(node_name + "/root_frame", root_frame);
             nh.getParam(node_name + "/child_frame", child_frame);
 
-            sub_odom = nh.subscribe("input_odom", 10, &Odom_To_TF::odomConvertCallback, this);
+            sub_odom = nh.subscribe("input_odom", 100, &Odom_To_TF::odomConvertCallback, this);
 		}
 
         void odomConvertCallback(const nav_msgs::Odometry::ConstPtr& msg) {
