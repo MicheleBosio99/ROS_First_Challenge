@@ -23,8 +23,6 @@
   </node>
 
   <!-- Start RVIZ -->
-  <node pkg="rviz" type="rviz" name="rviz" required="true" output="screen"/>
+  <node pkg="rviz" type="rviz" name="rviz" required="true" args="-d $(find first_project)/cfg/first_project_rviz_cfg.rviz"/>
 
-  <!-- Play the bag file -->
-  <!-- node name="rosbag_player" pkg="rosbag" type="play" args=" /src/bags/robotics.bag"/ -->
 </launch>
