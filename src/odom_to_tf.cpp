@@ -33,10 +33,16 @@ class Odom_To_TF {
 
             tf_pub.sendTransform(tf::StampedTransform(transform, ros::Time::now(), root_frame, child_frame));
 
+<<<<<<< Updated upstream
 
             ROS_INFO("Translation: [x: %f, y: %f, z: %f]", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
             rotation = transform.getRotation();
             ROS_INFO("Rotation: [x: %f, y: %f, z: %f, w: %f]\n\n", rotation.x(), rotation.y(), rotation.z(), rotation.w());
+=======
+            // ROS_INFO("NODE2(%s): Translation: [x: %f, y: %f, z: %f]", node_name.c_str(), transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
+            // rotation = transform.getRotation();
+            // ROS_INFO("NODE2(%s): Rotation: [x: %f, y: %f, z: %f, w: %f]\n\n", node_name.c_str(), rotation.x(), rotation.y(), rotation.z(), rotation.w());
+>>>>>>> Stashed changes
         }
 };
 

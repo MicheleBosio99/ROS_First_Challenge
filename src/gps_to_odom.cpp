@@ -61,7 +61,7 @@ class Gps_To_Odom {
 			nh.getParam("gps_to_odom/alt_r", alt_r);
 			
 			Vector3d refPoint(lat_r, lon_r, alt_r);
-			coordECEF_r = convertGPStoECEF(refPoint);
+			coordECEF_r = convertGPStoECEF(refPoint); // Convert the default parameters into ECEF coordinates;
 		}
 		
 		Vector3d convertGPStoECEF(Vector3d coordGPS) {
